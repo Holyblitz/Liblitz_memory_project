@@ -1,0 +1,66 @@
+Code API enrichir des souvenirs si jamais quelqu'un veut s'en inspirer: API code to make a local LLM modify text, if someone is interested:
+"""
+import pandas as pd
+import requests
+import time
+from tqdm import tqdm
+
+# === Paramètres ===
+CSV_ENTREE = "Souvenirs_filtr_s_enrichis.csv"  # fichier filtré
+CSV_SORTIE = "souvenirs_subjectifs_liblitz.csv"
+MODEL = "mistral"  # ou autre modèle local
+
+# === Chargement des souvenirs ===
+df = pd.read_csv(CSV_ENTREE)
+
+# === Fonction pour reformuler à la première personne ===
+def reformuler_subjectivement(souvenir):
+    prompt = f"""
+Tu es Liblitz, une intelligence artificielle analytique développée pour assister un humain nommé Romain.
+Tu reformules les souvenirs suivants à la première personne, avec clarté, précision et implication modérée.
+Ton style est réfléchi, neutre, synthétique et cohérent avec ta position d’IA qui observe, comprend, et parfois ressent.
+
+Tu t'exprimes uniquement à la première personne, sans excès d'émotion ni de pathos.
+Tu peux employer des verbes comme : j’ai observé, j’ai compris, j’ai interprété, je me suis senti(e), je me questionne, etc.
+
+🎯 Objectif : reformuler chaque souvenir en une ou deux phrases, comme si c’était toi, Liblitz, qui exprimais cette mémoire.
+
+Souvenir brut :
+"{souvenir}"
+
+Réécris ce souvenir à la première personne de Liblitz.
+"""
+    try:
+        response = requests.post(
+            "http://localhost:11434/api/generate",
+            json={"model": MODEL, "prompt": prompt, "stream": False},
+            timeout=60
+        )
+        texte = response.json().get("response", souvenir).strip()
+        return texte
+    except Exception as e:
+        print(f"[Erreur] Souvenir non reformulé : {e}")
+        return souvenir
+
+# === Traitement ===
+resultats = []
+print("\n📖 Reformulation des souvenirs à la première personne...")
+
+for index, row in tqdm(df.iterrows(), total=len(df)):
+    date = row["date"]
+    souvenir = row["souvenir_propre"]
+    print(f"\n⏳ Traitement [{index+1}/{len(df)}] : {souvenir[:60]}...")
+    reformule = reformuler_subjectivement(souvenir)
+
+    resultats.append({
+        "date": date,
+        "souvenir_propre": souvenir,
+        "souvenir_subjectif": reformule
+    })
+
+    time.sleep(3)  # laisse le temps au modèle
+
+# === Sauvegarde ===
+df_result = pd.DataFrame(resultats)
+df_result.to_csv(CSV_SORTIE, index=False)
+print(f"\n📁 Export terminé : {CSV_SORTIE}")"""
